@@ -1,0 +1,21 @@
+{
+  "dataset": "metlinccs",
+  "input_csv": "resources/fingerprints/metlinccs.csv",
+  "output_csv": "resources/fingerprints/metlinccs_cleaned.csv",
+  "add_descriptors": false,
+  "input_rows": 63318,
+  "input_columns": 2220,
+  "output_rows": 62917,
+  "output_columns": 2217,
+  "removed_missing_required_rows": 0,
+  "removed_duplicate_rows": 401,
+  "fingerprint_columns": 2214,
+  "adduct_counts": {
+    "[2M+H]+": 1089,
+    "[2M+Na]+": 2402,
+    "[2M-H]-": 331,
+    "[M+H]+": 25231,
+    "[M+Na]+": 15458,
+    "[M-H]-": 18406
+  }
+}

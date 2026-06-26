@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1020" viewBox="0 0 1700 1020" role="img" aria-labelledby="title desc">
+  <title id="title">Siamese neural network pretraining architecture</title>
+  <desc id="desc">Architecture-style diagram showing HMDB fingerprint inputs, duplicated Siamese branches with wide and narrow paths, shared weights, and structural and physicochemical pretraining outputs.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#233142"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#37658c"/>
+    </marker>
+    <marker id="arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6e7c89"/>
+    </marker>
+    <style>
+      .bg { fill: #ffffff; }
+      .title { font-family: Arial, Helvetica, sans-serif; font-size: 32px; font-weight: 700; fill: #172334; }
+      .subtitle { font-family: Arial, Helvetica, sans-serif; font-size: 17px; fill: #536273; }
+      .section { font-family: Arial, Helvetica, sans-serif; font-size: 17px; font-weight: 700; fill: #172334; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 700; fill: #172334; }
+      .text { font-family: Arial, Helvetica, sans-serif; font-size: 14px; fill: #2b3a4b; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; fill: #536273; }
+      .math { font-family: "Times New Roman", Times, serif; font-size: 18px; font-style: italic; fill: #172334; }
+      .panel { fill: #ffffff; stroke: #26384a; stroke-width: 1.5; }
+      .input { fill: #f3f7fa; stroke: #48677f; stroke-width: 1.5; }
+      .source { fill: #f8fafb; stroke: #74808b; stroke-width: 1.3; }
+      .wide { fill: #eaf2fb; stroke: #37658c; stroke-width: 1.6; }
+      .narrow { fill: #eef6ef; stroke: #4d7b5b; stroke-width: 1.6; }
+      .concat { fill: #f7f7fb; stroke: #60698c; stroke-width: 1.5; }
+      .head { fill: #fff8ec; stroke: #9b7438; stroke-width: 1.5; }
+      .output { fill: #fff3ee; stroke: #a45a4c; stroke-width: 1.5; }
+      .target { fill: #f5f2fa; stroke: #76639d; stroke-width: 1.4; }
+      .arrow { fill: none; stroke: #233142; stroke-width: 2; marker-end: url(#arrow); }
+      .arrow-blue { fill: none; stroke: #37658c; stroke-width: 2; marker-end: url(#arrow-blue); }
+      .arrow-soft { fill: none; stroke: #6e7c89; stroke-width: 1.7; marker-end: url(#arrow-soft); }
+      .arrow-dash { fill: none; stroke: #6e7c89; stroke-width: 1.7; stroke-dasharray: 7 5; marker-end: url(#arrow-soft); }
+      .share { fill: none; stroke: #60698c; stroke-width: 1.8; stroke-dasharray: 7 6; }
+      .node-wide { fill: #ffffff; stroke: #37658c; stroke-width: 1.4; }
+      .node-narrow { fill: #ffffff; stroke: #4d7b5b; stroke-width: 1.4; }
+      .divider { stroke: #d0d7de; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1700" height="1020"/>
+  <text class="title" x="70" y="58">Siamese pretraining architecture</text>
+  <text class="subtitle" x="70" y="86">HMDB molecular pairs are used to train a shared fingerprint encoder with structural and physicochemical supervision.</text>
+
+  <!-- Inputs -->
+  <text class="section" x="70" y="146">Inputs</text>
+  <rect class="panel" x="70" y="168" width="375" height="205" rx="6"/>
+  <text class="label" x="102" y="203">HMDB molecule pair</text>
+  <rect class="source" x="102" y="230" width="140" height="58" rx="5"/>
+  <text class="label" x="138" y="254">alvaDesc</text>
+  <text class="small" x="130" y="274">fingerprints</text>
+  <rect class="source" x="272" y="230" width="140" height="58" rx="5"/>
+  <text class="label" x="318" y="254">RDKit</text>
+  <text class="small" x="300" y="274">fingerprints</text>
+  <line class="divider" x1="102" y1="314" x2="412" y2="314"/>
+  <text class="small" x="102" y="342">A single fingerprint type is selected and used</text>
+  <text class="small" x="102" y="360">identically for both Siamese branches.</text>
+
+  <rect class="input" x="540" y="150" width="235" height="85" rx="6"/>
+  <text class="label" x="578" y="182">Fingerprint input</text>
+  <text class="math" x="642" y="211">x_i</text>
+
+  <rect class="input" x="540" y="565" width="235" height="85" rx="6"/>
+  <text class="label" x="578" y="597">Fingerprint input</text>
+  <text class="math" x="642" y="626">x_j</text>
+
+  <path class="arrow" d="M 445 258 C 495 258, 488 192, 540 192"/>
+  <path class="arrow" d="M 445 292 C 510 292, 490 607, 540 607"/>
+
+  <!-- Branch i -->
+  <text class="section" x="835" y="125">Branch for molecule i</text>
+  <rect class="panel" x="835" y="150" width="360" height="285" rx="8"/>
+  <rect class="wide" x="865" y="190" width="135" height="170" rx="6"/>
+  <text class="label" x="891" y="220">Wide path</text>
+  <circle class="node-wide" cx="900" cy="255" r="9"/>
+  <circle class="node-wide" cx="932" cy="255" r="9"/>
+  <circle class="node-wide" cx="964" cy="255" r="9"/>
+  <circle class="node-wide" cx="900" cy="294" r="9"/>
+  <circle class="node-wide" cx="932" cy="294" r="9"/>
+  <circle class="node-wide" cx="964" cy="294" r="9"/>
+  <text class="small" x="895" y="335">high-capacity</text>
+
+  <rect class="narrow" x="1030" y="190" width="135" height="170" rx="6"/>
+  <text class="label" x="1050" y="220">Narrow path</text>
+  <circle class="node-narrow" cx="1068" cy="250" r="7"/>
+  <circle class="node-narrow" cx="1098" cy="250" r="7"/>
+  <circle class="node-narrow" cx="1128" cy="250" r="7"/>
+  <circle class="node-narrow" cx="1068" cy="284" r="7"/>
+  <circle class="node-narrow" cx="1098" cy="284" r="7"/>
+  <circle class="node-narrow" cx="1128" cy="284" r="7"/>
+  <circle class="node-narrow" cx="1068" cy="318" r="7"/>
+  <circle class="node-narrow" cx="1098" cy="318" r="7"/>
+  <circle class="node-narrow" cx="1128" cy="318" r="7"/>
+  <text class="small" x="1060" y="352">deep path</text>
+
+  <rect class="concat" x="930" y="385" width="170" height="34" rx="5"/>
+  <text class="small" x="957" y="407">concatenation</text>
+
+  <path class="arrow-blue" d="M 775 192 L 865 258"/>
+  <path class="arrow-blue" d="M 775 192 L 1030 258"/>
+  <path class="arrow-soft" d="M 932 360 L 982 385"/>
+  <path class="arrow-soft" d="M 1098 360 L 1048 385"/>
+
+  <!-- Branch j -->
+  <text class="section" x="835" y="540">Branch for molecule j</text>
+  <rect class="panel" x="835" y="565" width="360" height="285" rx="8"/>
+  <rect class="wide" x="865" y="605" width="135" height="170" rx="6"/>
+  <text class="label" x="891" y="635">Wide path</text>
+  <circle class="node-wide" cx="900" cy="670" r="9"/>
+  <circle class="node-wide" cx="932" cy="670" r="9"/>
+  <circle class="node-wide" cx="964" cy="670" r="9"/>
+  <circle class="node-wide" cx="900" cy="709" r="9"/>
+  <circle class="node-wide" cx="932" cy="709" r="9"/>
+  <circle class="node-wide" cx="964" cy="709" r="9"/>
+  <text class="small" x="895" y="750">high-capacity</text>
+
+  <rect class="narrow" x="1030" y="605" width="135" height="170" rx="6"/>
+  <text class="label" x="1050" y="635">Narrow path</text>
+  <circle class="node-narrow" cx="1068" cy="665" r="7"/>
+  <circle class="node-narrow" cx="1098" cy="665" r="7"/>
+  <circle class="node-narrow" cx="1128" cy="665" r="7"/>
+  <circle class="node-narrow" cx="1068" cy="699" r="7"/>
+  <circle class="node-narrow" cx="1098" cy="699" r="7"/>
+  <circle class="node-narrow" cx="1128" cy="699" r="7"/>
+  <circle class="node-narrow" cx="1068" cy="733" r="7"/>
+  <circle class="node-narrow" cx="1098" cy="733" r="7"/>
+  <circle class="node-narrow" cx="1128" cy="733" r="7"/>
+  <text class="small" x="1060" y="767">deep path</text>
+
+  <rect class="concat" x="930" y="800" width="170" height="34" rx="5"/>
+  <text class="small" x="957" y="822">concatenation</text>
+
+  <path class="arrow-blue" d="M 775 607 L 865 673"/>
+  <path class="arrow-blue" d="M 775 607 L 1030 673"/>
+  <path class="arrow-soft" d="M 932 775 L 982 800"/>
+  <path class="arrow-soft" d="M 1098 775 L 1048 800"/>
+
+  <!-- Shared weights annotation -->
+  <path class="share" d="M 1215 285 C 1265 365, 1265 635, 1215 715"/>
+  <text class="label" x="1262" y="494">shared weights</text>
+  <text class="small" x="1262" y="517">same encoder in both branches</text>
+
+  <!-- Outputs -->
+  <text class="section" x="1370" y="145">Outputs and supervision</text>
+  <rect class="output" x="1370" y="170" width="260" height="95" rx="6"/>
+  <text class="label" x="1427" y="205">Similarity head</text>
+  <text class="small" x="1400" y="234">structural similarity target</text>
+  <path class="arrow" d="M 1100 402 C 1230 402, 1280 218, 1370 218"/>
+  <path class="arrow" d="M 1100 817 C 1245 817, 1280 243, 1370 243"/>
+
+  <rect class="output" x="1370" y="360" width="260" height="118" rx="6"/>
+  <text class="label" x="1437" y="394">logP head</text>
+  <text class="small" x="1411" y="423">logP for each molecule</text>
+  <text class="small" x="1420" y="449">and pair difference</text>
+  <path class="arrow" d="M 1100 402 C 1235 402, 1280 405, 1370 405"/>
+  <path class="arrow" d="M 1100 817 C 1245 817, 1280 448, 1370 448"/>
+
+  <rect class="output" x="1370" y="560" width="260" height="118" rx="6"/>
+  <text class="label" x="1425" y="594">Volume head</text>
+  <text class="small" x="1400" y="623">mean molecular volume</text>
+  <text class="small" x="1420" y="649">and pair difference</text>
+  <path class="arrow" d="M 1100 402 C 1240 402, 1280 604, 1370 604"/>
+  <path class="arrow" d="M 1100 817 C 1240 817, 1280 646, 1370 646"/>
+
+  <rect class="target" x="70" y="740" width="375" height="125" rx="6"/>
+  <text class="label" x="102" y="775">Physicochemical targets</text>
+  <text class="small" x="102" y="804">RDKit-derived logP and molecular volume</text>
+  <text class="small" x="102" y="829">enter as auxiliary supervision,</text>
+  <text class="small" x="102" y="850">not as fingerprint inputs.</text>
+  <path class="arrow-dash" d="M 445 795 C 640 905, 1190 430, 1370 420"/>
+  <path class="arrow-dash" d="M 445 825 C 660 935, 1190 625, 1370 620"/>
+
+  <rect class="target" x="1370" y="745" width="260" height="95" rx="6"/>
+  <text class="label" x="1405" y="779">Masked volume</text>
+  <text class="small" x="1395" y="808">missing volume targets</text>
+  <text class="small" x="1395" y="829">do not contribute</text>
+  <path class="arrow-dash" d="M 1500 678 L 1500 745"/>
+
+  <text class="small" x="70" y="940">Dashed arrows indicate target supervision. Solid arrows indicate neural information flow.</text>
+</svg>

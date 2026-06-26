@@ -1,0 +1,13 @@
+# Direct runtime dependencies imported by src/.
+# Keras uses the torch backend in this project.
+joblib==1.5.3
+keras==3.13.1
+matplotlib==3.10.9
+numpy==2.2.6
+pandas==2.3.3
+PyYAML==6.0.3
+rdkit==2026.3.1
+scikit-learn==1.7.2
+sktime==0.40.1
+torch==2.9.1
+tqdm==4.67.3

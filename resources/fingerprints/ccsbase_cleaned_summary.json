@@ -1,0 +1,41 @@
+{
+  "dataset": "ccsbase",
+  "input_csv": "resources/fingerprints/ccsbase.csv",
+  "descriptor_csv": "resources/descriptors/ccsbase_physchem.csv",
+  "output_csv": "resources/fingerprints/ccsbase_cleaned.csv",
+  "add_descriptors": true,
+  "input_rows": 19297,
+  "input_columns": 2228,
+  "output_rows": 10311,
+  "output_columns": 2225,
+  "removed_missing_required_rows": 0,
+  "removed_disallowed_adduct_rows": 5011,
+  "removed_duplicate_rows": 3975,
+  "fingerprint_columns": 2214,
+  "descriptor_columns": [
+    "MolWt",
+    "HeavyAtomCount",
+    "TPSA",
+    "MolLogP",
+    "NumRotatableBonds",
+    "RingCount",
+    "FractionCSP3",
+    "mol_volume_mean"
+  ],
+  "allowed_adducts": [
+    "[2M+H]+",
+    "[2M+Na]+",
+    "[2M-H]-",
+    "[M+H]+",
+    "[M+Na]+",
+    "[M-H]-"
+  ],
+  "adduct_counts": {
+    "[2M+H]+": 9,
+    "[2M+Na]+": 27,
+    "[2M-H]-": 28,
+    "[M+H]+": 4507,
+    "[M+Na]+": 3340,
+    "[M-H]-": 2400
+  }
+}

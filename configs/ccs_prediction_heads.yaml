@@ -1,0 +1,21 @@
+mass:
+  enabled: true
+
+molecular_features:
+  enabled: true
+  descriptor_csvs:
+    ccsbase: resources/descriptors/ccsbase_physchem.csv
+    metlinccs: resources/descriptors/metlinccs_physchem.csv
+
+training:
+  batch_size: 32
+  phase1_learning_rate: 1.0e-3
+  phase2_learning_rate: 1.0e-4
+  fine_tune_learning_rate: 1.0e-5
+  phase1_epochs: 10000
+  phase2_epochs: 10000
+  fine_tune_epochs: 20
+  early_stopping_patience: 20
+  reduce_lr_patience: 5
+  reduce_lr_factor: 0.3333333333
+  reduce_lr_min_delta: 1.0e-5

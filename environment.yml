@@ -1,0 +1,27 @@
+name: pytorch+_env
+channels:
+  - conda-forge
+dependencies:
+  - umap-learn=0.5.11
+  - pandas=2.3.3
+  - scipy=1.17.0
+  - joblib=1.5.3
+  - scikit-learn=1.7.2
+  - ipdb=0.13.13
+  - request=2.83.1
+  - numpy==2.2.6
+  - tqdm=4.67.1
+  - matplotlib=3.10.8
+  - request=2.83.1
+  - numba=0.63.1
+  - sktime=0.40.1
+  - rdkit=2025.09.4
+  - python=3.11
+  - pip=25.3
+  - pip:
+    - torch==2.9.1
+    - torchvision==0.24.1
+    - transformers==4.57.5
+    - docker==7.1.0
+    - unimol-tools==0.1.5
+    - keras==3.13.1
