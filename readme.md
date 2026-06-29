@@ -1,4 +1,4 @@
-# METLIN Enchanter
+# SiameseTransferCCS
 
 Code for pretraining Siamese models on molecular fingerprints and using them for CCS prediction. The main workflow uses RDKit fingerprints; AlvaDesc is kept as an explicit alternative.
 
