@@ -14,15 +14,13 @@ configs/
 
 resources/
   classifications/
-    hmdb_classifications.tsv                # original input
+    hmdb_classifications.zip                # original input
   fingerprints/
-    hmdb.csv                                # original AlvaDesc input
-    ccsbase.csv                             # original AlvaDesc input
-    metlinccs.csv                           # original AlvaDesc input
-    *_cleaned.csv                           # generated cleaned datasets
-    *_rdkit.csv                             # generated RDKit fingerprints
-  descriptors/
-    *_physchem.csv                          # generated physicochemical descriptors
+    hmdb.zip                                # original AlvaDesc input
+    ccsbase.zip                             # original AlvaDesc input
+    metlinccs.zip                           # original AlvaDesc input
+    *_cleaned.zip                           # generated cleaned datasets
+    *_rdkit.zip                             # generated RDKit fingerprints
 
 src/data/
   load_*.py                                 # in-memory loading and cleaning
@@ -75,7 +73,7 @@ resources/classifications/hmdb_classifications.tsv
 resources/fingerprints/ccsbase.csv
 resources/fingerprints/metlinccs.csv
 ```
-
+Unzipping may be necessary. 
 All other files under `resources/fingerprints` and `resources/descriptors` can be regenerated.
 
 ## Data Preparation
