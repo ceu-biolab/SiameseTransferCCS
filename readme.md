@@ -153,7 +153,15 @@ results/Siamese_physchem
 results/Siamese_physchem_alvadesc
 ```
 
-The training loss is MAE. The Siamese model keeps the Tanimoto similarity, LogP, and molecular volume tasks when they are enabled in the YAML file.
+Pretraining uses the complete HMDB molecule set in one reproducible 90/10
+training/validation partition, stratified by molecular classification. The
+persisted validation partition is used only for early stopping, learning-rate
+scheduling, and checkpoint selection; it is not a test partition. The default
+configuration draws 100,000 training pairs and 10,000 validation pairs per
+epoch.
+
+The training loss is MAE. The Siamese model keeps the Tanimoto similarity,
+LogP, and molecular volume tasks when they are enabled in the YAML file.
 
 ## Direct CCS Models
 

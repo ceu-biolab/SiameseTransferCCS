@@ -15,16 +15,22 @@ from src.models.pretrain_siamese_alvadesc import (
     FINGERPRINT_DIM,
     RESULTS_ROOT,
     WIDE_DIM,
-    FingerprintSiamesePretrainer as AlvaDescFingerprintSiamesePretrainer,
+    FiveFoldFingerprintSiamesePretrainer as AlvaDescFiveFoldFingerprintSiamesePretrainer,
     SiameseFingerprintModel,
 )
+from src.models.hmdb_pretraining import HMDBPretrainingMixin
 
 
 DEFAULT_CONFIG_PATH = Path("configs/pretrain_siamese.yaml")
 
 
-class FingerprintSiamesePretrainer(AlvaDescFingerprintSiamesePretrainer):
-    """Pretrain the fingerprint Siamese model with HMDB RDKit fingerprints."""
+class FiveFoldFingerprintSiamesePretrainer(
+    AlvaDescFiveFoldFingerprintSiamesePretrainer
+):
+    """Legacy five-fold pretrainer using HMDB RDKit fingerprints."""
+
+    fingerprint_source = "rdkit"
+    pretraining_protocol = "five_fold_grouped"
 
     def __init__(self, config_path: str | Path = DEFAULT_CONFIG_PATH):
         super().__init__(config_path=config_path)
@@ -62,6 +68,7 @@ class FingerprintSiamesePretrainer(AlvaDescFingerprintSiamesePretrainer):
     def _write_model_manifest(self) -> None:
         payload = {
             "model_type": "fingerprint_siamese_pretrain",
+            "pretraining_protocol": self.pretraining_protocol,
             "fingerprint_source": "rdkit",
             "embedding_model_class": "SiameseFingerprintModel",
             "input_dim": FINGERPRINT_DIM,
@@ -78,8 +85,19 @@ class FingerprintSiamesePretrainer(AlvaDescFingerprintSiamesePretrainer):
             json.dump(payload, f, indent=2)
 
 
+class FingerprintSiamesePretrainer(
+    HMDBPretrainingMixin,
+    FiveFoldFingerprintSiamesePretrainer,
+):
+    """Pretrain one RDKit encoder on the canonical HMDB 90/10 split."""
+
+    pretraining_protocol = "hmdb_90_10"
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Pretrain the HMDB RDKit fingerprint Siamese model.")
+    parser = argparse.ArgumentParser(
+        description="Pretrain one HMDB RDKit fingerprint Siamese model on a 90/10 split."
+    )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
     args = parser.parse_args()
     FingerprintSiamesePretrainer(config_path=args.config).run()

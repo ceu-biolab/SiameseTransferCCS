@@ -25,6 +25,7 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import GroupKFold
 
 from src.data import load_hmdb
+from src.models.hmdb_pretraining import HMDBPretrainingMixin
 
 
 DEFAULT_CONFIG_PATH = Path("configs/pretrain_siamese_alvadesc.yaml")
@@ -267,7 +268,12 @@ class TaskStats:
     std: float
 
 
-class FingerprintSiamesePretrainer:
+class FiveFoldFingerprintSiamesePretrainer:
+    pair_dataset_class = SiamesePairDataset
+    epoch_logger_class = EpochLogger
+    fingerprint_source = "alvadesc"
+    pretraining_protocol = "five_fold_grouped"
+
     def __init__(self, config_path: str | Path = DEFAULT_CONFIG_PATH):
         self.config_path = Path(config_path)
         self.config = load_yaml(self.config_path)
@@ -668,6 +674,7 @@ class FingerprintSiamesePretrainer:
     def _write_model_manifest(self) -> None:
         payload = {
             "model_type": "fingerprint_siamese_pretrain",
+            "pretraining_protocol": self.pretraining_protocol,
             "fingerprint_source": "alvadesc",
             "embedding_model_class": "SiameseFingerprintModel",
             "input_dim": FINGERPRINT_DIM,
@@ -684,8 +691,19 @@ class FingerprintSiamesePretrainer:
             json.dump(payload, f, indent=2)
 
 
+class FingerprintSiamesePretrainer(
+    HMDBPretrainingMixin,
+    FiveFoldFingerprintSiamesePretrainer,
+):
+    """Pretrain one alvaDesc encoder on the canonical HMDB 90/10 split."""
+
+    pretraining_protocol = "hmdb_90_10"
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Pretrain the HMDB AlvaDesc fingerprint Siamese model.")
+    parser = argparse.ArgumentParser(
+        description="Pretrain one HMDB alvaDesc fingerprint Siamese model on a 90/10 split."
+    )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
     args = parser.parse_args()
     FingerprintSiamesePretrainer(config_path=args.config).run()

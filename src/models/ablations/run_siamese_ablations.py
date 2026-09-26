@@ -15,6 +15,8 @@ import yaml
 RESULTS_ROOT = Path("results")
 ABLATION_ROOT = RESULTS_ROOT / "ablations"
 TRAINING_LOSS = "mae"
+PRETRAINING_PROTOCOL = "hmdb_90_10"
+DEFAULT_EXPERIMENT_PREFIX = "hmdb90_10_v1"
 
 SOURCES = {
     "alvadesc": {
@@ -60,10 +62,11 @@ class AblationJob:
     results_name: str
     siamese_results_dir: Path
     pretrain_module: str
+    experiment_tag: str
 
     @property
     def label(self) -> str:
-        return f"{self.source}_{self.ablation}_mae"
+        return f"{self.source}_{self.experiment_tag}"
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -81,8 +84,10 @@ def build_job(
     source: str,
     ablation: str,
     results_prefix: str,
+    experiment_prefix: str,
     configs_dir: Path,
     ccs_config_path: Path,
+    random_seed: int,
 ) -> AblationJob:
     source_cfg = SOURCES[source]
     ablation_cfg = ABLATIONS[ablation]
@@ -96,17 +101,30 @@ def build_job(
     config.setdefault("tasks", {})
     config.setdefault("loss", {})
     config.setdefault("training", {})
+    config.setdefault("data", {})
 
+    split_config = config.get("split", {})
+    train_fraction = float(split_config.get("train_fraction", 0.0))
+    validation_fraction = float(split_config.get("validation_fraction", 0.0))
+    if train_fraction != 0.90 or validation_fraction != 0.10:
+        raise ValueError(
+            f"Expected a 90/10 single HMDB split in {base_config_path}; "
+            f"found train_fraction={train_fraction}, "
+            f"validation_fraction={validation_fraction}."
+        )
+
+    config["data"]["random_seed"] = int(random_seed)
     config["tasks"]["use_logp"] = bool(ablation_cfg["use_logp"])
     config["tasks"]["use_molvol"] = bool(ablation_cfg["use_molvol"])
     config["loss"]["lambda_similarity"] = float(ablation_cfg["lambda_similarity"])
 
-    experiment_tag = f"{ablation}_mae"
+    experiment_tag = f"{experiment_prefix}_{ablation}_mae"
     results_name = f"{results_prefix}_{source}_{experiment_tag}"
     config["training"]["results_name"] = results_name
     config["ablation"] = {
         "source": source,
         "name": ablation,
+        "pretraining_protocol": PRETRAINING_PROTOCOL,
         "training_loss": TRAINING_LOSS,
         "use_logp": bool(ablation_cfg["use_logp"]),
         "use_molvol": bool(ablation_cfg["use_molvol"]),
@@ -122,6 +140,7 @@ def build_job(
     ccs_config["ablation"].update({
         "source": source,
         "name": ablation,
+        "pretraining_protocol": PRETRAINING_PROTOCOL,
         "training_loss": TRAINING_LOSS,
         "base_ccs_config": str(ccs_config_path),
         "siamese_results_dir": str(RESULTS_ROOT / results_name),
@@ -137,6 +156,7 @@ def build_job(
         results_name=results_name,
         siamese_results_dir=RESULTS_ROOT / results_name,
         pretrain_module=str(source_cfg["pretrain_module"]),
+        experiment_tag=experiment_tag,
     )
 
 
@@ -175,6 +195,8 @@ def write_completion_marker(path: Path, job: AblationJob, args: argparse.Namespa
     payload = {
         "source": job.source,
         "ablation": job.ablation,
+        "pretraining_protocol": PRETRAINING_PROTOCOL,
+        "experiment_tag": job.experiment_tag,
         "training_loss": TRAINING_LOSS,
         "pretrain_config": str(job.config_path),
         "ccs_config": str(job.ccs_config_path),
@@ -210,7 +232,7 @@ def run_pipeline(job: AblationJob, args: argparse.Namespace) -> None:
         "--siamese-results-dir",
         str(job.siamese_results_dir),
         "--experiment-tag",
-        f"{job.ablation}_mae",
+        job.experiment_tag,
     ]
 
     pretrain_log = args.logs_dir / f"{job.label}_pretrain.log"
@@ -234,7 +256,11 @@ def run_pipeline(job: AblationJob, args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run Siamese pretraining and downstream CCS ablations for AlvaDesc and RDKit fingerprints."
+        description=(
+            "Run the four objective ablations with one Siamese encoder pretrained "
+            "on a reproducible 90/10 HMDB split, followed by the frozen linear CCS head. "
+            "The wide-only and deep-only architecture ablations remain in their legacy runners."
+        )
     )
     parser.add_argument("--sources", nargs="+", choices=sorted(SOURCES), default=list(SOURCES))
     parser.add_argument("--ablations", nargs="+", choices=sorted(ABLATIONS), default=list(ABLATIONS))
@@ -242,9 +268,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--folds", type=int, default=5, help="Number of CCS folds to run, from 1 to 5.")
     parser.add_argument("--random-seed", type=int, default=42)
     parser.add_argument("--results-prefix", default="Siamese_ablation")
-    parser.add_argument("--configs-dir", type=Path, default=ABLATION_ROOT / "configs")
-    parser.add_argument("--logs-dir", type=Path, default=ABLATION_ROOT / "logs")
-    parser.add_argument("--markers-dir", type=Path, default=ABLATION_ROOT / "completed")
+    parser.add_argument(
+        "--experiment-prefix",
+        default=DEFAULT_EXPERIMENT_PREFIX,
+        help="Prefix used in downstream result tags and completion markers.",
+    )
+    parser.add_argument(
+        "--configs-dir",
+        type=Path,
+        default=ABLATION_ROOT / DEFAULT_EXPERIMENT_PREFIX / "configs",
+    )
+    parser.add_argument(
+        "--logs-dir",
+        type=Path,
+        default=ABLATION_ROOT / DEFAULT_EXPERIMENT_PREFIX / "logs",
+    )
+    parser.add_argument(
+        "--markers-dir",
+        type=Path,
+        default=ABLATION_ROOT / DEFAULT_EXPERIMENT_PREFIX / "completed",
+    )
     parser.add_argument("--python", default=sys.executable, help="Python executable used for subprocesses.")
     parser.add_argument("--max-workers", type=int, default=1, help="Number of ablation pipelines to run in parallel.")
     parser.add_argument("--skip-existing-pretrain", action="store_true")
@@ -268,8 +311,10 @@ def main() -> None:
             source=source,
             ablation=ablation,
             results_prefix=args.results_prefix,
+            experiment_prefix=args.experiment_prefix,
             configs_dir=args.configs_dir,
             ccs_config_path=args.ccs_config,
+            random_seed=args.random_seed,
         )
         for source in args.sources
         for ablation in args.ablations

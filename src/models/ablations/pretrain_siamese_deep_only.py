@@ -25,13 +25,14 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import GroupKFold
 
 from src.data import load_hmdb_rdkit
+from src.models.hmdb_pretraining import HMDBPretrainingMixin
 
 
 DEFAULT_CONFIG_PATH = Path("configs/pretrain_siamese_deep_only.yaml")
 RESULTS_ROOT = Path("results")
-EMBEDDING_DIM = 1280
-WIDE_DIM = 1024
-DEEP_DIM = 256
+WIDE_DIM = 1536
+DEEP_DIM = 512
+EMBEDDING_DIM = WIDE_DIM + DEEP_DIM
 TRAIN_PAIRS = 100_000
 VAL_PAIRS = 10_000
 TEST_PAIRS = 100_000
@@ -273,7 +274,10 @@ class TaskStats:
     std: float
 
 
-class FingerprintSiamesePretrainer:
+class FiveFoldFingerprintSiamesePretrainer:
+    pair_dataset_class = SiamesePairDataset
+    epoch_logger_class = EpochLogger
+
     def __init__(self, config_path: str | Path = DEFAULT_CONFIG_PATH):
         self.config_path = Path(config_path)
         self.config = load_yaml(self.config_path)
@@ -672,6 +676,7 @@ class FingerprintSiamesePretrainer:
     def _write_model_manifest(self) -> None:
         payload = {
             "model_type": "fingerprint_siamese_pretrain_deep_only",
+            "pretraining_protocol": "hmdb_90_10",
             "fingerprint_source": "rdkit",
             "embedding_model_class": "SiameseFingerprintModel",
             "branch_mode": "deep_only",
@@ -686,8 +691,19 @@ class FingerprintSiamesePretrainer:
             json.dump(payload, f, indent=2)
 
 
+class FingerprintSiamesePretrainer(
+    HMDBPretrainingMixin,
+    FiveFoldFingerprintSiamesePretrainer,
+):
+    """Pretrain one RDKit deep-only encoder on the shared HMDB 90/10 protocol."""
+
+    fingerprint_source = "rdkit"
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Pretrain the HMDB RDKit fingerprint Siamese deep-only model.")
+    parser = argparse.ArgumentParser(
+        description="Pretrain one HMDB RDKit fingerprint Siamese deep-only model on a 90/10 split."
+    )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
     args = parser.parse_args()
     FingerprintSiamesePretrainer(config_path=args.config).run()

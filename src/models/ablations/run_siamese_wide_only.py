@@ -18,7 +18,11 @@ from keras.optimizers import RMSprop
 from matplotlib import pyplot as plt
 from sklearn.metrics import mean_absolute_error, r2_score
 
-from src.models.ablations.pretrain_siamese_wide_only import SiameseFingerprintModel
+from src.models.ablations.pretrain_siamese_wide_only import (
+    EMBEDDING_DIM,
+    WIDE_DIM,
+    SiameseFingerprintModel,
+)
 from src.models.run_baseline import (
     DATASET_CONFIGS,
     DEFAULT_CONFIG_PATH,
@@ -30,8 +34,8 @@ from src.models.run_baseline import (
 
 
 SIAMESE_RESULTS_DIRS = {
-    "alvadesc": Path("results/Siamese_physchem_wide_only_alvadesc_test"),
-    "rdkit": Path("results/Siamese_physchem_wide_only_test"),
+    "alvadesc": Path("results/Siamese_physchem_wide_only_alvadesc"),
+    "rdkit": Path("results/Siamese_physchem_wide_only"),
 }
 MODEL_TYPES = ("linear_regression",)
 MODEL_DISPLAY_NAMES = {
@@ -51,12 +55,14 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
         random_seed: int = 42,
         fingerprint_source: str = "rdkit",
         siamese_results_dir: str | Path | None = None,
+        experiment_tag: str = "hmdb90_10_v1",
     ):
         super().__init__(
             config_path=config_path,
             folds=folds,
             random_seed=random_seed,
             fingerprint_source=fingerprint_source,
+            experiment_tag=experiment_tag,
         )
         self.siamese_results_dir = Path(siamese_results_dir) if siamese_results_dir else SIAMESE_RESULTS_DIRS[fingerprint_source]
         self.results_root = RESULTS_ROOT
@@ -66,6 +72,7 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
         print(f"CCS siamesa runner | config={self.config_path} | folds={self.folds}")
         print(f"Fingerprint source: {self.fingerprint_source}")
         print(f"Siamese results dir: {self.siamese_results_dir}")
+        print(f"Experiment tag: {self.experiment_tag or '(none)'}")
         print("Models:")
         for model_type in MODEL_TYPES:
             print(f"  - {MODEL_DISPLAY_NAMES[model_type]}: {self.model_run_description(model_type)}")
@@ -134,6 +141,7 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
                     "fingerprint_source": self.fingerprint_source,
                     "siamese_results_dir": str(self.siamese_results_dir),
                     "siamese_weights": str(self.weights_path()),
+                    "experiment_tag": self.experiment_tag,
                     "fine_tune_siamese": self.fine_tunes_siamese(model_type),
                     "uses_aux_features": self.uses_aux_features(model_type),
                 },
@@ -255,6 +263,33 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
             raise ValueError(
                 f"Siamese manifest fingerprint_source mismatch at {manifest_path}: "
                 f"expected '{self.fingerprint_source}', found '{manifest_source}'."
+            )
+        branch_mode = manifest.get("branch_mode")
+        if branch_mode != "wide_only":
+            raise ValueError(
+                f"Siamese manifest branch_mode mismatch at {manifest_path}: "
+                f"expected 'wide_only', found {branch_mode!r}."
+            )
+        model_type = manifest.get("model_type")
+        if model_type != "fingerprint_siamese_pretrain_wide_only":
+            raise ValueError(
+                f"Siamese manifest model_type mismatch at {manifest_path}: "
+                "expected 'fingerprint_siamese_pretrain_wide_only', "
+                f"found {model_type!r}."
+            )
+        wide_dim = manifest.get("wide_dim")
+        if wide_dim != WIDE_DIM:
+            raise ValueError(
+                f"Siamese manifest wide_dim mismatch at {manifest_path}: "
+                f"expected {WIDE_DIM}, found {wide_dim!r}. Retrain the wide-only "
+                "encoder before running downstream CCS tasks."
+            )
+        embedding_dim = manifest.get("embedding_dim")
+        if embedding_dim != EMBEDDING_DIM:
+            raise ValueError(
+                f"Siamese manifest embedding_dim mismatch at {manifest_path}: "
+                f"expected {EMBEDDING_DIM}, found {embedding_dim!r}. Retrain the "
+                "wide-only encoder before running downstream CCS tasks."
             )
 
     @staticmethod
@@ -379,9 +414,10 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
         features_tag = "with_molfeatures" if self.use_molecular_features else "no_molfeatures"
         mass_tag = "with_mass" if self.use_mass else "no_mass"
         folds_tag = "single_fold" if self.folds == 1 else "five_folds"
+        experiment_tag = f"{self.experiment_tag}_" if self.experiment_tag else ""
         return (
             f"train_val_{'_'.join(train_val_dbs)}_test_{test_db}_{self.fingerprint_source}_"
-            f"siamesa_wide_only_{features_tag}_{mass_tag}_{model_type}_{folds_tag}"
+            f"siamesa_wide_only_{experiment_tag}{features_tag}_{mass_tag}_{model_type}_{folds_tag}"
         )
 
     def write_final_metrics(self, train_val_dbs: list[str], test_db: str) -> None:
@@ -452,6 +488,7 @@ def main() -> None:
     parser.add_argument("--random-seed", type=int, default=42)
     parser.add_argument("--fingerprint-source", choices=sorted(VALID_FINGERPRINT_SOURCES), default="rdkit")
     parser.add_argument("--siamese-results-dir", default=None)
+    parser.add_argument("--experiment-tag", default="hmdb90_10_v1")
     args = parser.parse_args()
     SiameseCCSRunner(
         config_path=args.config,
@@ -459,6 +496,7 @@ def main() -> None:
         random_seed=args.random_seed,
         fingerprint_source=args.fingerprint_source,
         siamese_results_dir=args.siamese_results_dir,
+        experiment_tag=args.experiment_tag,
     ).run()
 
 
