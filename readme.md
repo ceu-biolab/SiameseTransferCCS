@@ -228,31 +228,47 @@ Models:
 
 Ablation code lives in `src/models/ablations`.
 
-Deep-only or wide-only pretraining:
+The article ablations use RDKit fingerprints and the DGR-MLP CCS head only.
+The complete suite runs sequentially and contains random initialization, six
+pretraining-objective ablations, wide-only, and deep-only. The all-task
+Wide+Deep reference is validated from the existing standard CCS results and is
+not trained again.
+
+First, the reference CCS results must exist for the four routes under the tag
+`hmdb90_10_v1`. They can be generated with:
 
 ```bash
-python -m src.models.ablations.pretrain_siamese_deep_only \
-  --config configs/pretrain_siamese_deep_only.yaml
+python -m src.models.run_siamese \
+  --config configs/ccs_prediction_heads.yaml \
+  --fingerprint-source rdkit \
+  --folds 5 \
+  --random-seed 42 \
+  --siamese-results-dir results/Siamese_physchem \
+  --experiment-tag hmdb90_10_v1 \
+  --models gated_residual_mlp
 ```
 
-```bash
-python -m src.models.ablations.pretrain_siamese_wide_only \
-  --config configs/pretrain_siamese_wide_only.yaml
-```
-
-Their CCS runners are:
-
-```bash
-python -m src.models.ablations.run_siamese_deep_only
-python -m src.models.ablations.run_siamese_wide_only
-```
-
-For pretraining task sweeps:
+Then run all nine ablations in one invocation:
 
 ```bash
 python -m src.models.ablations.run_siamese_ablations \
-  --sources rdkit alvadesc \
-  --folds 5
+  --fingerprint-source rdkit \
+  --folds 5 \
+  --random-seed 42 \
+  --experiment-tag dgr_hmdb_ablations
+```
+
+The suite has no partial-selection or resume mode. It refuses to start when its
+output directory already exists. Use `--dry-run` to validate the reference and
+print the eight pretraining commands and nine downstream commands without
+creating files.
+
+After a complete run, generate the article figure and statistical tables from
+the experiment manifest:
+
+```bash
+python -m src.analysis.generate_dgr_ablation_figures \
+  --manifest results/ablations/dgr_hmdb/dgr_hmdb_ablations/experiment_manifest.json
 ```
 
 ## CCS Configuration

@@ -59,6 +59,7 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
         fingerprint_source: str = "rdkit",
         siamese_results_dir: str | Path | None = None,
         experiment_tag: str | None = None,
+        model_types: tuple[str, ...] | list[str] | None = None,
     ):
         super().__init__(
             config_path=config_path,
@@ -70,7 +71,15 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
         self.experiment_tag = str(experiment_tag).strip() if experiment_tag else ""
         self.results_root = RESULTS_ROOT
         self.splits_dir = self.results_root / "splits"
-        self.model_types = ("linear_regression",) if self.config.get("ablation") else MODEL_TYPES
+        selected_models = tuple(model_types) if model_types is not None else MODEL_TYPES
+        unknown_models = sorted(set(selected_models) - set(MODEL_TYPES))
+        if unknown_models:
+            raise ValueError(
+                f"Unknown model types: {unknown_models}. Expected a subset of {MODEL_TYPES}."
+            )
+        if not selected_models:
+            raise ValueError("At least one model type must be selected.")
+        self.model_types = selected_models
 
     def run(self) -> None:
         print(f"CCS siamesa runner | config={self.config_path} | folds={self.folds}")
@@ -141,19 +150,7 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
             encoding="utf-8",
         )
         (fold_dir / "siamese_metadata.json").write_text(
-            json.dumps(
-                {
-                    "mode": "siamesa",
-                    "fingerprint_source": self.fingerprint_source,
-                    "siamese_results_dir": str(self.siamese_results_dir),
-                    "siamese_weights": str(self.weights_path()),
-                    "experiment_tag": self.experiment_tag,
-                    "ccs_loss": "mae",
-                    "fine_tune_siamese": self.fine_tunes_siamese(model_type),
-                    "uses_aux_features": self.uses_aux_features(model_type),
-                },
-                indent=2,
-            ),
+            json.dumps(self.siamese_metadata(model_type), indent=2),
             encoding="utf-8",
         )
 
@@ -170,6 +167,18 @@ class SiameseCCSRunner(FingerprintCCSBaselineRunner):
         self.save_training_history(history, fold_idx, fold_dir)
         self.plot_loss_history(history, arrays.y_scaler, fold_idx, fold_dir, model_type)
         self.evaluate_fold(model, arrays, fold_idx, fold_dir, subfolder, model_type)
+
+    def siamese_metadata(self, model_type: str) -> dict[str, Any]:
+        return {
+            "mode": "siamesa",
+            "fingerprint_source": self.fingerprint_source,
+            "siamese_results_dir": str(self.siamese_results_dir),
+            "siamese_weights": str(self.weights_path()),
+            "experiment_tag": self.experiment_tag,
+            "ccs_loss": "mae",
+            "fine_tune_siamese": self.fine_tunes_siamese(model_type),
+            "uses_aux_features": self.uses_aux_features(model_type),
+        }
 
     def build_model(self, model_type: str, fp_dim: int, adduct_dim: int, aux_dim: int = 1):
         if model_type in {"linear_regression", "linear_regression_ft"}:
@@ -484,6 +493,13 @@ def main() -> None:
     parser.add_argument("--fingerprint-source", choices=sorted(VALID_FINGERPRINT_SOURCES), default="rdkit")
     parser.add_argument("--siamese-results-dir", default=None)
     parser.add_argument("--experiment-tag", default=None, help="Optional tag added to CCS result folder names.")
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        choices=MODEL_TYPES,
+        default=None,
+        help="CCS heads to train. By default all three heads are trained.",
+    )
     args = parser.parse_args()
     SiameseCCSRunner(
         config_path=args.config,
@@ -492,6 +508,7 @@ def main() -> None:
         fingerprint_source=args.fingerprint_source,
         siamese_results_dir=args.siamese_results_dir,
         experiment_tag=args.experiment_tag,
+        model_types=args.models,
     ).run()
 
 
