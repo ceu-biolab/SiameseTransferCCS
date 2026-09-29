@@ -15,7 +15,7 @@ from src.models.pretrain_siamese_alvadesc import (
     FINGERPRINT_DIM,
     RESULTS_ROOT,
     WIDE_DIM,
-    FiveFoldFingerprintSiamesePretrainer as AlvaDescFiveFoldFingerprintSiamesePretrainer,
+    FingerprintPretrainerBase as AlvaDescFingerprintPretrainerBase,
     SiameseFingerprintModel,
 )
 from src.models.hmdb_pretraining import HMDBPretrainingMixin
@@ -24,13 +24,12 @@ from src.models.hmdb_pretraining import HMDBPretrainingMixin
 DEFAULT_CONFIG_PATH = Path("configs/pretrain_siamese.yaml")
 
 
-class FiveFoldFingerprintSiamesePretrainer(
-    AlvaDescFiveFoldFingerprintSiamesePretrainer
+class FingerprintPretrainerBase(
+    AlvaDescFingerprintPretrainerBase
 ):
-    """Legacy five-fold pretrainer using HMDB RDKit fingerprints."""
+    """Configuration and data helpers for HMDB RDKit pretraining."""
 
     fingerprint_source = "rdkit"
-    pretraining_protocol = "five_fold_grouped"
 
     def __init__(self, config_path: str | Path = DEFAULT_CONFIG_PATH):
         super().__init__(config_path=config_path)
@@ -83,7 +82,7 @@ class FiveFoldFingerprintSiamesePretrainer(
 
 class FingerprintSiamesePretrainer(
     HMDBPretrainingMixin,
-    FiveFoldFingerprintSiamesePretrainer,
+    FingerprintPretrainerBase,
 ):
     """Pretrain one RDKit encoder on the canonical HMDB 90/10 split."""
 

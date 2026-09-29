@@ -2,8 +2,7 @@
 
 The canonical source-specific pretraining entry points reuse this mixin together
 with their existing model, losses, pair generation, normalization, and callbacks.
-It replaces the superclass-grouped cross-validation procedure with one
-molecule-level stratified training/validation split.
+It runs one molecule-level stratified training/validation split.
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ MONITOR_MODE = "min"
 
 
 class HMDBPretrainingMixin:
-    """Replace five-fold pretraining with one stratified HMDB split."""
+    """Train one encoder using a stratified HMDB training/validation split."""
 
     fingerprint_source: str
     pair_dataset_class: type

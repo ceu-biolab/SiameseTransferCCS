@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import gc
 import json
 import os
 import random
@@ -21,8 +19,6 @@ from keras import callbacks, layers, ops, optimizers, regularizers
 from keras.utils import PyDataset
 from matplotlib import pyplot as plt
 from rdkit import DataStructs
-from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.model_selection import GroupKFold
 
 from src.data import load_hmdb
 from src.models.hmdb_pretraining import HMDBPretrainingMixin
@@ -34,14 +30,9 @@ RESULTS_ROOT = Path("results")
 WIDE_DIM = 1536
 DEEP_DIM = 512
 EMBEDDING_DIM = WIDE_DIM + DEEP_DIM
-TRAIN_PAIRS = 100_000
-VAL_PAIRS = 10_000
-TEST_PAIRS = 100_000
 LEARNING_RATE = 1e-4
 RMSPROP_RHO = 0.7
 RMSPROP_MOMENTUM = 0.7
-MONITOR_METRIC = "val_loss"
-MONITOR_MODE = "min"
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -275,7 +266,7 @@ class TaskStats:
     std: float
 
 
-class FiveFoldFingerprintSiamesePretrainer:
+class FingerprintPretrainerBase:
     pair_dataset_class = SiamesePairDataset
     epoch_logger_class = EpochLogger
 
@@ -296,15 +287,8 @@ class FiveFoldFingerprintSiamesePretrainer:
         self.batch_size = int(self.training_cfg.get("batch_size", 64))
         self.results_name = str(self.training_cfg.get("results_name", "Siamese_physchem_deep_only_alvadesc_test"))
         self.results_dir = RESULTS_ROOT / self.results_name
-        self.csv_path = self.results_dir / "metrics.csv"
         self.results_dir.mkdir(parents=True, exist_ok=True)
         set_seed(self.random_seed)
-
-    def run(self) -> None:
-        self._write_model_manifest()
-        df = self.load_data()
-        self.train(df)
-        self.aggregate_results()
 
     def load_data(self) -> pd.DataFrame:
         df = load_hmdb()
@@ -373,14 +357,6 @@ class FiveFoldFingerprintSiamesePretrainer:
             df["molvol_valid"] = df["mol_volume_mean"].notna().astype(np.float32)
             df["molvol_scaled"] = df["molvol_scaled"].fillna(0.0).astype(np.float32)
         return df
-
-    @staticmethod
-    def _denormalize(values: np.ndarray, stats: TaskStats) -> np.ndarray:
-        return (values.astype(np.float32) * np.float32(stats.std)) + np.float32(stats.mean)
-
-    @staticmethod
-    def _denormalize_delta(values: np.ndarray, stats: TaskStats) -> np.ndarray:
-        return values.astype(np.float32) * np.float32(stats.std)
 
     def generate_pairs(self, df: pd.DataFrame, cols: list[str], n: int):
         x = df[cols].to_numpy(dtype=np.float32)
@@ -482,154 +458,6 @@ class FiveFoldFingerprintSiamesePretrainer:
             metrics=metrics,
         )
 
-    def train(self, df: pd.DataFrame) -> None:
-        outer_gkf = GroupKFold(n_splits=5)
-        for fold, (train_val_idx, test_idx) in enumerate(outer_gkf.split(df, groups=df["classification"])):
-            print(f"Fold {fold + 1}")
-            train_val_df = df.iloc[train_val_idx].reset_index(drop=True)
-            test_df = df.iloc[test_idx].reset_index(drop=True)
-
-            inner_gkf = GroupKFold(n_splits=5)
-            train_idx, val_idx = next(inner_gkf.split(train_val_df, groups=train_val_df["classification"]))
-            train_df = train_val_df.iloc[train_idx].reset_index(drop=True)
-            val_df = train_val_df.iloc[val_idx].reset_index(drop=True)
-
-            stats_by_name: dict[str, TaskStats] = {}
-            if self.use_logp:
-                stats_by_name["logp"] = self._fit_task_stats(train_df["logp"])
-            if self.use_molvol:
-                stats_by_name["molvol"] = self._fit_task_stats(train_df["mol_volume_mean"].dropna())
-
-            train_df_scaled = self._apply_normalization(train_df, stats_by_name)
-            val_df_scaled = self._apply_normalization(val_df, stats_by_name)
-            test_df_scaled = self._apply_normalization(test_df, stats_by_name)
-
-            cols = self.fingerprint_columns(train_df)
-            dim = len(cols)
-
-            x1_train, x2_train, train_targets, train_sample_weights = self.generate_pairs(train_df_scaled, cols, TRAIN_PAIRS)
-            dataset = SiamesePairDataset(
-                x1_train,
-                x2_train,
-                train_targets,
-                sample_weights=train_sample_weights,
-                batch_size=self.batch_size,
-            )
-            x1_val, x2_val, val_targets, val_sample_weights = self.generate_pairs(val_df_scaled, cols, VAL_PAIRS)
-
-            model = self.build_model(dim)
-            self.compile_model(model)
-
-            fold_dir = self.results_dir / f"fold_{fold + 1}"
-            fold_dir.mkdir(parents=True, exist_ok=True)
-            weights = fold_dir / "best.weights.h5"
-            epoch_logger = EpochLogger(use_logp=self.use_logp, use_molvol=self.use_molvol)
-            cb = [
-                epoch_logger,
-                callbacks.ModelCheckpoint(
-                    str(weights),
-                    save_best_only=True,
-                    save_weights_only=True,
-                    monitor=MONITOR_METRIC,
-                    mode=MONITOR_MODE,
-                ),
-                callbacks.EarlyStopping(
-                    monitor=MONITOR_METRIC,
-                    mode=MONITOR_MODE,
-                    min_delta=float(self.training_cfg.get("early_stopping_min_delta", 0.000002)),
-                    patience=int(self.training_cfg.get("early_stopping_patience", 10)),
-                    restore_best_weights=True,
-                ),
-                callbacks.ReduceLROnPlateau(
-                    monitor=MONITOR_METRIC,
-                    factor=float(self.training_cfg.get("reduce_lr_factor", 0.3333333)),
-                    patience=int(self.training_cfg.get("reduce_lr_patience", 4)),
-                    min_delta=float(self.training_cfg.get("early_stopping_min_delta", 0.000002)),
-                    verbose=1,
-                ),
-            ]
-
-            history = model.fit(
-                dataset,
-                epochs=int(self.training_cfg.get("max_epochs", 2000)),
-                validation_data=((x1_val, x2_val), val_targets, val_sample_weights),
-                callbacks=cb,
-                verbose=0,
-            )
-            history.history["epoch_time"] = epoch_logger.epoch_times
-            self._save_training_log(history, fold + 1, fold_dir)
-            self._plot_loss_history(history, fold + 1, fold_dir)
-
-            model = self.build_model(dim)
-            dummy = (np.zeros((1, dim), dtype=np.float32), np.zeros((1, dim), dtype=np.float32))
-            _ = model(dummy)
-            model.load_weights(weights)
-
-            x1_test, x2_test, test_targets, test_sample_weights = self.generate_pairs(test_df_scaled, cols, TEST_PAIRS)
-            self.evaluate(model, x1_test, x2_test, test_targets, test_sample_weights, stats_by_name, fold, fold_dir)
-
-            gc.collect()
-            print(f"      -> Memory cleared after fold {fold + 1}")
-
-    @staticmethod
-    def _masked_mae(y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray) -> str:
-        mask = np.asarray(mask).astype(bool)
-        if mask.sum() == 0:
-            return ""
-        return f"{mean_absolute_error(y_true[mask], y_pred[mask]):.4f}"
-
-    def evaluate(self, model, x1, x2, targets, sample_weights, stats_by_name: dict[str, TaskStats], fold, folder: Path):
-        pred = model.predict((x1, x2), batch_size=512, verbose=0)
-        pred_similarity = np.asarray(pred["similarity"]).flatten()
-        y_similarity = np.asarray(targets["similarity"])
-        metrics_row = {
-            "Fold": fold + 1,
-            "MAE": f"{mean_absolute_error(y_similarity, pred_similarity):.4f}",
-            "R2": f"{r2_score(y_similarity, pred_similarity):.4f}",
-            "LogP1_MAE": "",
-            "LogP2_MAE": "",
-            "LogPDelta_MAE": "",
-            "MolVol1_MAE": "",
-            "MolVol2_MAE": "",
-            "MolVolDelta_MAE": "",
-        }
-        if self.use_logp:
-            stats = stats_by_name["logp"]
-            metrics_row["LogP1_MAE"] = f"{mean_absolute_error(self._denormalize(targets['logp_1'], stats), self._denormalize(np.asarray(pred['logp_1']).flatten(), stats)):.4f}"
-            metrics_row["LogP2_MAE"] = f"{mean_absolute_error(self._denormalize(targets['logp_2'], stats), self._denormalize(np.asarray(pred['logp_2']).flatten(), stats)):.4f}"
-            metrics_row["LogPDelta_MAE"] = f"{mean_absolute_error(self._denormalize_delta(targets['logp_delta'], stats), self._denormalize_delta(np.asarray(pred['logp_delta']).flatten(), stats)):.4f}"
-        if self.use_molvol:
-            stats = stats_by_name["molvol"]
-            pred_molvol_1 = self._denormalize(np.asarray(pred["molvol_1"]).flatten(), stats)
-            pred_molvol_2 = self._denormalize(np.asarray(pred["molvol_2"]).flatten(), stats)
-            pred_molvol_delta = self._denormalize_delta(np.asarray(pred["molvol_delta"]).flatten(), stats)
-            y_molvol_1 = self._denormalize(np.asarray(targets["molvol_1"]), stats)
-            y_molvol_2 = self._denormalize(np.asarray(targets["molvol_2"]), stats)
-            y_molvol_delta = self._denormalize_delta(np.asarray(targets["molvol_delta"]), stats)
-            metrics_row["MolVol1_MAE"] = self._masked_mae(y_molvol_1, pred_molvol_1, sample_weights["molvol_1"])
-            metrics_row["MolVol2_MAE"] = self._masked_mae(y_molvol_2, pred_molvol_2, sample_weights["molvol_2"])
-            metrics_row["MolVolDelta_MAE"] = self._masked_mae(
-                y_molvol_delta,
-                pred_molvol_delta,
-                sample_weights["molvol_delta"],
-            )
-
-        plt.figure()
-        plt.scatter(y_similarity, pred_similarity, s=1, alpha=0.5)
-        plt.plot([0, 1], [0, 1])
-        plt.xlabel("True Similarity")
-        plt.ylabel("Predicted Similarity")
-        plt.title(f"Fold {fold + 1}")
-        plt.savefig(folder / "scatter.png")
-        plt.close()
-
-        write_header = not self.csv_path.exists()
-        with self.csv_path.open("a", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=list(metrics_row.keys()))
-            if write_header:
-                writer.writeheader()
-            writer.writerow(metrics_row)
-
     def _plot_loss_history(self, history, fold_number: int, fold_dir: Path) -> None:
         plt.figure(figsize=(10, 6))
         plt.plot(history.history["loss"], label="Training Loss", linewidth=2)
@@ -649,26 +477,6 @@ class FiveFoldFingerprintSiamesePretrainer:
         with (log_dir / f"training_history_fold_{fold_number}.json").open("w", encoding="utf-8") as f:
             json.dump(history.history, f, indent=2)
         pd.DataFrame(history.history).to_csv(log_dir / f"training_log_fold_{fold_number}.csv", index_label="epoch")
-
-    def aggregate_results(self) -> None:
-        if not self.csv_path.exists():
-            return
-        df = pd.read_csv(self.csv_path)
-        df = df[df["Fold"].astype(str) != "Total"].copy()
-        if df.empty:
-            return
-        numeric_cols = [
-            "MAE", "R2",
-            "LogP1_MAE", "LogP2_MAE", "LogPDelta_MAE",
-            "MolVol1_MAE", "MolVol2_MAE", "MolVolDelta_MAE",
-        ]
-        summary_row = {"Fold": "Total"}
-        for col in numeric_cols:
-            values = pd.to_numeric(df[col], errors="coerce").dropna().to_numpy(dtype=np.float64)
-            summary_row[col] = "" if values.size == 0 else f"{values.mean():.4f}±{values.std():.4f}"
-        with self.csv_path.open("a", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["Fold", *numeric_cols])
-            writer.writerow(summary_row)
 
     def _write_model_manifest(self) -> None:
         payload = {
@@ -690,7 +498,7 @@ class FiveFoldFingerprintSiamesePretrainer:
 
 class FingerprintSiamesePretrainer(
     HMDBPretrainingMixin,
-    FiveFoldFingerprintSiamesePretrainer,
+    FingerprintPretrainerBase,
 ):
     """Pretrain one alvaDesc deep-only encoder on the shared HMDB 90/10 protocol."""
 

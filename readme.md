@@ -165,6 +165,11 @@ epoch.
 The training loss is MAE. The Siamese model keeps the Tanimoto similarity,
 LogP, and molecular volume tasks when they are enabled in the YAML file.
 
+The legacy five-fold HMDB pretraining implementation has been removed. The
+pretraining commands and configurations are unchanged, and the single encoder
+checkpoint remains at `fold_1/best.weights.h5` for downstream compatibility.
+Five-fold cross-validation for downstream CCS prediction is unchanged.
+
 ## Direct CCS Models
 
 Baselines with fingerprints, adduct, and auxiliary features:
