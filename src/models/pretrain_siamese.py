@@ -37,8 +37,6 @@ class FiveFoldFingerprintSiamesePretrainer(
 
     def load_data(self) -> pd.DataFrame:
         df = load_hmdb_rdkit()
-        if not self.use_logp and not self.use_molvol:
-            return df
         if not self.descriptor_cache_csv.exists():
             raise FileNotFoundError(
                 f"Descriptor cache not found: {self.descriptor_cache_csv}. "
@@ -47,22 +45,20 @@ class FiveFoldFingerprintSiamesePretrainer(
 
         desc_df = pd.read_csv(self.descriptor_cache_csv)
         desc_df = desc_df.drop_duplicates(subset="inchi", keep="last")
-        keep_cols = ["inchi"]
-        if self.use_logp:
-            keep_cols.append("logp")
+        # Keep the molecular population fixed across pretraining objectives.
+        keep_cols = ["inchi", "logp"]
         if self.use_molvol:
             keep_cols.append("mol_volume_mean")
 
         merged = df.merge(desc_df[keep_cols], on="inchi", how="left")
         before = len(merged)
-        if self.use_logp:
-            merged = merged[merged["logp"].notna()]
+        merged = merged[merged["logp"].notna()].copy()
         if self.use_molvol:
             merged["mol_volume_valid"] = merged["mol_volume_mean"].notna().astype(np.float32)
         merged = merged.reset_index(drop=True)
         removed = before - len(merged)
         if removed > 0:
-            print(f"Removing {removed:,} molecules with missing physchem descriptors")
+            print(f"Removing {removed:,} molecules with missing LogP (all objectives)")
         return merged
 
     def _write_model_manifest(self) -> None:

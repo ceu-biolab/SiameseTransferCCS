@@ -26,6 +26,7 @@ from sklearn.model_selection import GroupKFold
 
 from src.data import load_hmdb_rdkit
 from src.models.hmdb_pretraining import HMDBPretrainingMixin
+from src.models.losses import scalar_absolute_error
 
 
 DEFAULT_CONFIG_PATH = Path("configs/pretrain_siamese_wide_only.yaml")
@@ -307,8 +308,6 @@ class FiveFoldFingerprintSiamesePretrainer:
 
     def load_data(self) -> pd.DataFrame:
         df = load_hmdb_rdkit()
-        if not self.use_logp and not self.use_molvol:
-            return df
         if not self.descriptor_cache_csv.exists():
             raise FileNotFoundError(
                 f"Descriptor cache not found: {self.descriptor_cache_csv}. "
@@ -317,22 +316,20 @@ class FiveFoldFingerprintSiamesePretrainer:
 
         desc_df = pd.read_csv(self.descriptor_cache_csv)
         desc_df = desc_df.drop_duplicates(subset="inchi", keep="last")
-        keep_cols = ["inchi"]
-        if self.use_logp:
-            keep_cols.append("logp")
+        # Keep the molecular population fixed across pretraining objectives.
+        keep_cols = ["inchi", "logp"]
         if self.use_molvol:
             keep_cols.append("mol_volume_mean")
 
         merged = df.merge(desc_df[keep_cols], on="inchi", how="left")
         before = len(merged)
-        if self.use_logp:
-            merged = merged[merged["logp"].notna()]
+        merged = merged[merged["logp"].notna()].copy()
         if self.use_molvol:
             merged["mol_volume_valid"] = merged["mol_volume_mean"].notna().astype(np.float32)
         merged = merged.reset_index(drop=True)
         removed = before - len(merged)
         if removed > 0:
-            print(f"Removing {removed:,} molecules with missing physchem descriptors")
+            print(f"Removing {removed:,} molecules with missing LogP (all objectives)")
         return merged
 
     def fingerprint_columns(self, df: pd.DataFrame) -> list[str]:
@@ -464,9 +461,9 @@ class FiveFoldFingerprintSiamesePretrainer:
             metrics["logp_delta"] = ["mae"]
 
         if self.use_molvol:
-            loss["molvol_1"] = "mae"
-            loss["molvol_2"] = "mae"
-            loss["molvol_delta"] = "mae"
+            loss["molvol_1"] = scalar_absolute_error
+            loss["molvol_2"] = scalar_absolute_error
+            loss["molvol_delta"] = scalar_absolute_error
             loss_weights["molvol_1"] = float(self.loss_cfg.get("lambda_molvol_abs", 0.3))
             loss_weights["molvol_2"] = float(self.loss_cfg.get("lambda_molvol_abs", 0.3))
             loss_weights["molvol_delta"] = float(self.loss_cfg.get("lambda_molvol_delta", 0.1))

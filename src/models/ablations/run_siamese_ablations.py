@@ -327,7 +327,22 @@ def pretrain_command(job: AblationJob, python: str) -> list[str] | None:
     return [python, "-m", job.pretrain_module, "--config", str(job.pretrain_config_path)]
 
 
-def validate_pretrained_checkpoint(job: AblationJob) -> dict[str, str]:
+def validate_pretraining_split(checkpoint_dir: Path, reference_dir: Path) -> None:
+    """Require identical HMDB membership for each reference/ablation partition."""
+    for filename in ("train_inchi.csv", "validation_inchi.csv"):
+        memberships = []
+        for directory in (reference_dir, checkpoint_dir):
+            path = directory / "split" / filename
+            with path.open(newline="", encoding="utf-8") as handle:
+                memberships.append({row["inchi"] for row in csv.DictReader(handle)})
+        if memberships[0] != memberships[1]:
+            raise ValueError(
+                f"HMDB split mismatch in {checkpoint_dir / 'split' / filename}: "
+                "the ablation and reference must use the same molecules in each partition."
+            )
+
+
+def validate_pretrained_checkpoint(job: AblationJob, reference_dir: Path) -> dict[str, str]:
     if job.spec.scratch or job.checkpoint_dir is None:
         raise ValueError("Random initialization has no pretrained checkpoint to validate.")
     manifest_path = job.checkpoint_dir / "model_manifest.json"
@@ -372,6 +387,7 @@ def validate_pretrained_checkpoint(job: AblationJob) -> dict[str, str]:
                 f"Ablation checkpoint {job.spec.name} has invalid {key}: "
                 f"expected {expected_value!r}, found {manifest.get(key)!r}."
             )
+    validate_pretraining_split(job.checkpoint_dir, reference_dir)
     return {
         "model_manifest_sha256": sha256(manifest_path),
         "weights_sha256": sha256(weights_path),
@@ -619,7 +635,7 @@ def main() -> None:
                     experiment_root / "logs" / f"{job.spec.name}_pretrain.log",
                 )
                 manifest["ablations"][index]["checkpoint_sha256"] = (
-                    validate_pretrained_checkpoint(job)
+                    validate_pretrained_checkpoint(job, args.reference_siamese_results_dir)
                 )
             run_command(
                 downstream_command(

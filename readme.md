@@ -153,8 +153,10 @@ results/Siamese_physchem
 results/Siamese_physchem_alvadesc
 ```
 
-Pretraining uses the complete HMDB molecule set in one reproducible 90/10
-training/validation partition, stratified by molecular classification. The
+Pretraining uses the HMDB molecule set after a common filter that excludes
+molecules without LogP, including when the LogP task is disabled. Within each
+fingerprint source, every objective ablation therefore uses the same molecule
+set and reproducible 90/10 training/validation partition, stratified by molecular classification. The
 persisted validation partition is used only for early stopping, learning-rate
 scheduling, and checkpoint selection; it is not a test partition. The default
 configuration draws 100,000 training pairs and 10,000 validation pairs per
@@ -292,3 +294,7 @@ results/ablations/                  # ablation sweeps
 ```
 
 The `*_results.csv` files contain a `Total` row with fold mean and standard deviation. Weights, scalers, encoders, histories, and plots are stored inside each fold directory.
+
+`MSPE(%)` is `100 * mean(((prediction - target) / target) ** 2)`: a 10% relative
+error contributes 1.0 to this metric. Older outputs stored the unconverted ratio
+under the same column name; existing result files are not automatically migrated.

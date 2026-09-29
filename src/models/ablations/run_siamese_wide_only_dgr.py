@@ -24,10 +24,10 @@ from sklearn.metrics import (
     median_absolute_error,
     r2_score,
 )
-from sktime.performance_metrics.forecasting import mean_squared_percentage_error
 
 from src.models.ablations.run_siamese_wide_only import SiameseCCSRunner as WideOnlyCCSRunner
 from src.models.run_baseline import FoldArrays, set_seed
+from src.models.metrics import mspe_percent
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -417,7 +417,7 @@ class WideOnlyPretrainedDGRRunner(WideOnlyCCSRunner):
             "MedAPE(%)": float(
                 np.median(np.abs((y_test - y_pred) / np.clip(y_test, 1e-8, None))) * 100
             ),
-            "MSPE(%)": float(mean_squared_percentage_error(y_test, y_pred)),
+            "MSPE(%)": mspe_percent(y_test, y_pred),
             "R2": float(r2_score(y_test, y_pred)),
         }
         atomic_json(fold_dir / "metrics.json", {"Fold": fold_idx + 1, **metrics})

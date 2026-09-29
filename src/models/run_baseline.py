@@ -32,7 +32,6 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import GroupKFold
 from sklearn.preprocessing import OneHotEncoder, RobustScaler
-from sktime.performance_metrics.forecasting import mean_squared_percentage_error
 
 from src.data import load_ccsbase, load_metlinccs
 from src.data.load_ccsbase import (
@@ -42,6 +41,7 @@ from src.data.load_ccsbase import (
     merge_physchem_descriptors,
 )
 from src.data.load_metlinccs import METLINCCS_DESCRIPTORS_CSV
+from src.models.metrics import mspe_percent
 
 
 DEFAULT_CONFIG_PATH = Path("configs/ccs_prediction_heads.yaml")
@@ -772,7 +772,7 @@ class FingerprintCCSBaselineRunner:
         medae = median_absolute_error(y_test, y_pred)
         mse = mean_squared_error(y_test, y_pred)
         mape = mean_absolute_percentage_error(y_test, y_pred) * 100
-        mspe = mean_squared_percentage_error(y_test, y_pred)
+        mspe = mspe_percent(y_test, y_pred)
         medape = np.median(np.abs((y_test - y_pred) / np.clip(y_test, 1e-8, None))) * 100
         r2 = r2_score(y_test, y_pred)
 
