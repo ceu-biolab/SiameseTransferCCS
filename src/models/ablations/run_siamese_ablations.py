@@ -7,6 +7,7 @@ import json
 import shlex
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -226,9 +227,10 @@ def reference_result_paths(
                 "Run the standard pretrained Wide+Deep CCS workflow first."
             )
         with csv_path.open(newline="", encoding="utf-8") as handle:
+            all_rows = list(csv.DictReader(handle))
             rows = [
                 row
-                for row in csv.DictReader(handle)
+                for row in all_rows
                 if str(row.get("Fold", "")).strip().lower() != "total"
             ]
         if len(rows) < folds:
@@ -237,8 +239,27 @@ def reference_result_paths(
             )
         if any(not row.get("MAE") for row in rows[:folds]):
             raise ValueError(f"Reference result has missing MAE values: {csv_path}")
+        if not any(str(row.get("Fold", "")).strip().lower() == "total" for row in all_rows):
+            raise ValueError(f"Reference result is not yet aggregated: {csv_path}")
         paths[route_name] = str(csv_path.resolve())
     return paths
+
+
+def await_reference_results(
+    reference_root: Path,
+    reference_tag: str,
+    folds: int,
+    *,
+    wait: bool = False,
+) -> dict[str, str]:
+    while True:
+        try:
+            return reference_result_paths(reference_root, reference_tag, folds)
+        except (FileNotFoundError, ValueError) as exc:
+            if not wait:
+                raise
+            print(f"Waiting for reference {reference_tag}: {exc}\nRetrying in 60 seconds.", flush=True)
+            time.sleep(60)
 
 
 def canonical_split_hashes(reference_root: Path) -> dict[str, str]:
@@ -525,6 +546,10 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_REFERENCE_SIAMESE_DIR,
     )
     parser.add_argument("--reference-experiment-tag", default=DEFAULT_REFERENCE_TAG)
+    parser.add_argument(
+        "--wait-for-reference", action="store_true",
+        help="Wait for all reference CCS results to finish before starting; ignored with --dry-run.",
+    )
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument(
         "--dry-run",
@@ -546,15 +571,14 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     experiment_root = ABLATION_ROOT / args.experiment_tag
-    reference_results = reference_result_paths(
-        args.reference_results_root,
-        args.reference_experiment_tag,
-        args.folds,
-    )
-    split_hashes = canonical_split_hashes(args.reference_results_root)
     reference_encoder = validate_reference_encoder(
         args.reference_siamese_results_dir, args.random_seed
     )
+    reference_results = await_reference_results(
+        args.reference_results_root, args.reference_experiment_tag, args.folds,
+        wait=args.wait_for_reference and not args.dry_run,
+    )
+    split_hashes = canonical_split_hashes(args.reference_results_root)
     jobs = build_jobs(experiment_root)
 
     print("DGR-MLP Siamese ablation suite")

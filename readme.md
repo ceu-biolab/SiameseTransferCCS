@@ -303,3 +303,11 @@ The `*_results.csv` files contain a `Total` row with fold mean and standard devi
 `MSPE(%)` is `100 * mean(((prediction - target) / target) ** 2)`: a 10% relative
 error contributes 1.0 to this metric. Older outputs stored the unconverted ratio
 under the same column name; existing result files are not automatically migrated.
+
+
+
+## License
+
+The source code od this project is distributed under the GNU General Public
+License version 3 only (`GPL-3.0-only`). See [LICENSE](LICENSE) for details.
+

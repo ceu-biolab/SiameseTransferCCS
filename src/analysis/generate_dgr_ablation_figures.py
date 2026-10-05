@@ -114,10 +114,8 @@ def fold_mae(path: Path) -> np.ndarray:
 
 def significance_stars(p_value: float) -> str:
     if p_value < 0.01:
-        return "***"
-    if p_value < 0.05:
         return "**"
-    if p_value < 0.10:
+    if p_value < 0.05:
         return "*"
     return ""
 

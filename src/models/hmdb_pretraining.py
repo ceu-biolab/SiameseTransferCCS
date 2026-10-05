@@ -18,10 +18,46 @@ os.environ.setdefault("KERAS_BACKEND", "torch")
 import numpy as np
 import pandas as pd
 from keras import callbacks
+from keras.utils import PyDataset
 from sklearn.model_selection import StratifiedShuffleSplit
 
 MONITOR_METRIC = "val_loss"
 MONITOR_MODE = "min"
+
+
+class EpochPairDataset(PyDataset):
+    """Reuse the pair dataset implementation with a fresh sample each epoch."""
+
+    def __init__(self, dataset_factory, seed: int):
+        super().__init__()
+        self.dataset_factory = dataset_factory
+        self.seed = seed
+        self._epoch = 0
+        # Keras may inspect batches before the first epoch starts.
+        self._dataset = self._generate_dataset(0)
+
+    def _generate_dataset(self, epoch: int):
+        # Existing pair generators use NumPy's global RNG. Isolate their draws
+        # so sampling is reproducible without changing other training randomness.
+        state = np.random.get_state()
+        try:
+            np.random.seed(np.random.SeedSequence([self.seed, epoch]).generate_state(1)[0])
+            return self.dataset_factory()
+        finally:
+            np.random.set_state(state)
+
+    def __len__(self):
+        return len(self._dataset)
+
+    def __getitem__(self, index):
+        return self._dataset[index]
+
+    def set_epoch(self, epoch: int):
+        # Use the actual fit epoch: PyDataset.on_epoch_begin is also called
+        # during Keras' symbolic build, before training starts.
+        if epoch != self._epoch:
+            self._dataset = self._generate_dataset(epoch)
+            self._epoch = epoch
 
 
 class HMDBPretrainingMixin:
@@ -242,18 +278,21 @@ class HMDBPretrainingMixin:
         fingerprint_columns = self.fingerprint_columns(train_df)
         fingerprint_dim = len(fingerprint_columns)
 
-        x1_train, x2_train, train_targets, train_weights = self.generate_pairs(
-            train_scaled,
-            fingerprint_columns,
-            self.train_pairs,
-        )
-        train_dataset = self.pair_dataset_class(
-            x1_train,
-            x2_train,
-            train_targets,
-            sample_weights=train_weights,
-            batch_size=self.batch_size,
-        )
+        def make_train_dataset():
+            x1, x2, targets, weights = self.generate_pairs(
+                train_scaled,
+                fingerprint_columns,
+                self.train_pairs,
+            )
+            return self.pair_dataset_class(
+                x1,
+                x2,
+                targets,
+                sample_weights=weights,
+                batch_size=self.batch_size,
+            )
+
+        train_dataset = EpochPairDataset(make_train_dataset, seed=self.random_seed)
         x1_validation, x2_validation, validation_targets, validation_weights = self.generate_pairs(
             validation_scaled,
             fingerprint_columns,
@@ -291,6 +330,9 @@ class HMDBPretrainingMixin:
                 patience=int(self.training_cfg.get("reduce_lr_patience", 4)),
                 min_delta=float(self.training_cfg.get("early_stopping_min_delta", 0.000002)),
                 verbose=1,
+            ),
+            callbacks.LambdaCallback(
+                on_epoch_begin=lambda epoch, logs: train_dataset.set_epoch(epoch),
             ),
         ]
 
