@@ -15,6 +15,8 @@ configs/
 resources/
   classifications/
     hmdb_classifications.zip                # original input
+  descriptors/
+    physchem_descriptors.zip                # descriptor caches used in the article
   fingerprints/
     hmdb.zip                                # original AlvaDesc input
     ccsbase.zip                             # original AlvaDesc input
@@ -62,6 +64,8 @@ micromamba env create -f environment.yml
 ```
 
 The scripts set `KERAS_BACKEND=torch` when the variable is not already defined.
+The runtime versions in `requirements.txt` match those in `environment.yml`
+and the environment used to reproduce the article results.
 
 ## Data
 
@@ -73,12 +77,31 @@ resources/classifications/hmdb_classifications.tsv
 resources/fingerprints/ccsbase.csv
 resources/fingerprints/metlinccs.csv
 ```
-Unzipping may be necessary. 
-All other files under `resources/fingerprints` and `resources/descriptors` can be regenerated.
+From the project root, extract the bundled classification and fingerprint
+archives into their respective directories:
+
+```bash
+for archive in resources/classifications/*.zip resources/fingerprints/*.zip; do
+  unzip -n "$archive" -d "$(dirname "$archive")"
+done
+```
+
+The archive `resources/descriptors/physchem_descriptors.zip` contains the exact
+descriptor caches used in the article: `hmdb_physchem.csv`,
+`ccsbase_physchem.csv`, and `metlinccs_physchem.csv`. Extract it into
+`resources/descriptors` before pretraining or CCS model training:
+
+```bash
+unzip -n resources/descriptors/physchem_descriptors.zip -d resources/descriptors
+```
+
+These commands preserve any existing files. Use the bundled descriptor caches
+and fingerprints to reproduce the article results. The prepared fingerprints
+and descriptor caches can also be regenerated using the commands below.
 
 ## Data Preparation
 
-Starting from only the four original input files, run:
+To regenerate the prepared data from the four original input files, run:
 
 ```bash
 python -m src.data.generate_clean_fingerprint_csvs \

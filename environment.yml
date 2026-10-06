@@ -4,6 +4,8 @@ channels:
 dependencies:
   - umap-learn=0.5.11
   - pandas=2.3.3
+  - pyyaml=6.0.3
+  - h5py=3.16.0
   - scipy=1.17.0
   - joblib=1.5.3
   - scikit-learn=1.7.2

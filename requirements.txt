@@ -1,13 +1,15 @@
-# Direct runtime dependencies imported by src/.
+# Runtime dependencies for reproducing the article; versions match environment.yml.
 # Keras uses the torch backend in this project.
+h5py==3.16.0
 joblib==1.5.3
 keras==3.13.1
-matplotlib==3.10.9
+matplotlib==3.10.8
 numpy==2.2.6
 pandas==2.3.3
 PyYAML==6.0.3
-rdkit==2026.3.1
+rdkit==2025.9.4
 scikit-learn==1.7.2
+scipy==1.17.0
 sktime==0.40.1
 torch==2.9.1
-tqdm==4.67.3
+tqdm==4.67.1
