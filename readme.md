@@ -69,7 +69,14 @@ and the environment used to reproduce the article results.
 
 ## Data
 
-The project assumes these files are the original inputs:
+To reproduce the article results, we recommend using the prepared datasets,
+fingerprints, and physicochemical descriptor caches distributed as ZIP archives
+in this repository and in the associated
+[Zenodo deposit](https://zenodo.org/uploads/23163180). Extract the archives as
+described below before running the training pipeline. Alternatively, the prepared
+files can be regenerated following the instructions in [Data Preparation](#data-preparation).
+
+The data preparation scripts use the following source files:
 
 ```text
 resources/fingerprints/hmdb.csv
@@ -95,13 +102,18 @@ descriptor caches used in the article: `hmdb_physchem.csv`,
 unzip -n resources/descriptors/physchem_descriptors.zip -d resources/descriptors
 ```
 
-These commands preserve any existing files. Use the bundled descriptor caches
-and fingerprints to reproduce the article results. The prepared fingerprints
-and descriptor caches can also be regenerated using the commands below.
+These extraction commands preserve any existing files.
 
 ## Data Preparation
 
-To regenerate the prepared data from the four original input files, run:
+This optional workflow regenerates the prepared data from the four source files
+listed above. It is not required when using the prepared files distributed with
+the project. Note that some data preparation steps, especially molecular-volume
+calculation, are computationally intensive and can take up to several days,
+depending on the available hardware. We recommend using the prepared files
+to reproduce the article results.
+
+To regenerate the prepared data, run:
 
 ```bash
 python -m src.data.generate_clean_fingerprint_csvs \
@@ -188,14 +200,9 @@ epoch.
 The training loss is MAE. The Siamese model keeps the Tanimoto similarity,
 LogP, and molecular volume tasks when they are enabled in the YAML file.
 
-The legacy five-fold HMDB pretraining implementation has been removed. The
-pretraining commands and configurations are unchanged, and the single encoder
-checkpoint remains at `fold_1/best.weights.h5` for downstream compatibility.
-Five-fold cross-validation for downstream CCS prediction is unchanged.
+## Baseline Models
 
-## Direct CCS Models
-
-Baselines with fingerprints, adduct, and auxiliary features:
+Run the baselines with fingerprints, adduct, and auxiliary features:
 
 ```bash
 python -m src.models.run_baseline \
@@ -204,7 +211,7 @@ python -m src.models.run_baseline \
   --folds 5
 ```
 
-For AlvaDesc:
+For AlvaDesc fingerprints execute:
 
 ```bash
 python -m src.models.run_baseline \
@@ -213,23 +220,37 @@ python -m src.models.run_baseline \
   --folds 5
 ```
 
-Each run covers:
+Each run covers four evaluation scenarios: two within-database settings, where
+training and testing use separate subsets of the same database, and two
+cross-database settings, where the model is trained on one database and tested
+on the other. The arrows indicate the training source and test destination:
 
 - CCSBase -> CCSBase
 - CCSBase -> METLINCCS
 - METLINCCS -> CCSBase
 - METLINCCS -> METLINCCS
 
-Models:
+Each run evaluates three baseline models using molecular fingerprints and adduct
+information. They differ in predictor complexity and the inclusion of
+physicochemical descriptors:
 
-- `linear_regression_fingerprints_only`
-- `linear_regression`
-- `gated_residual_mlp`
+- `linear_regression_fingerprints_only`: linear regression without physicochemical descriptors.
+- `linear_regression`: linear regression augmented with physicochemical descriptors.
+- `gated_residual_mlp`: a descriptor-gated residual multilayer perceptron (DGR-MLP).
 
-## CCS With Siamese Encoder
+For details, see “Baseline and ablation experiments” in the Materials and Methods
+of the accompanying article, *Siamese Molecular Pretraining Improves Collision
+Cross Section Prediction Across Experimental Databases*.
 
-RDKit:
+## CCS Prediction Using a Pretrained Siamese Encoder
 
+These commands use a pretrained Siamese encoder to transform molecular
+fingerprints into embeddings for CCS prediction. Each command evaluates all
+three prediction strategies in the four within- and cross-database scenarios
+described above, using five folds. Run the corresponding pretraining command
+first, or provide an existing compatible pretraining results directory.
+
+For RDKit fingerprints, load the encoder from `results/Siamese_physchem`:
 ```bash
 python -m src.models.run_siamese \
   --config configs/ccs_prediction_heads.yaml \
@@ -238,8 +259,9 @@ python -m src.models.run_siamese \
   --siamese-results-dir results/Siamese_physchem
 ```
 
-AlvaDesc:
-
+For AlvaDesc fingerprints, use the corresponding encoder from
+`results/Siamese_physchem_alvadesc`. This runs the same evaluation with AlvaDesc
+fingerprints and their matching pretrained representation:
 ```bash
 python -m src.models.run_siamese \
   --config configs/ccs_prediction_heads.yaml \
@@ -248,20 +270,21 @@ python -m src.models.run_siamese \
   --siamese-results-dir results/Siamese_physchem_alvadesc
 ```
 
-Models:
+The three strategies differ in whether the encoder is updated during CCS
+training and in the regression head used:
 
-- `linear_regression`: frozen encoder.
-- `linear_regression_ft`: fine-tuned encoder.
-- `gated_residual_mlp`: fine-tuned encoder with auxiliary features.
+- `linear_regression`: a linear predictor on frozen embeddings and adduct information, without physicochemical descriptors.
+- `linear_regression_ft`: a linear predictor with physicochemical descriptors and a fine-tuned encoder.
+- `gated_residual_mlp`: a descriptor-gated residual MLP with a fine-tuned encoder.
+
+Use `--models` to select a subset of these strategies. For methodological details,
+see the Materials and Methods of the accompanying article.
 
 ## Ablations
 
-Ablation code lives in `src/models/ablations`.
+Ablation code is in `src/models/ablations`.
 
-Architecture ablations (wide-only and deep-only) support RDKit fingerprints
-only. Full-encoder pretraining and CCS prediction also support alvaDesc.
-
-The article ablations use RDKit fingerprints and the DGR-MLP CCS head only.
+The ablations use RDKit fingerprints and the DGR-MLP CCS head.
 The complete suite runs sequentially and contains random initialization, six
 pretraining-objective ablations, wide-only, and deep-only. The all-task
 Wide+Deep reference is validated from the existing standard CCS results and is
@@ -291,12 +314,11 @@ python -m src.models.ablations.run_siamese_ablations \
   --experiment-tag dgr_hmdb_ablations
 ```
 
-The suite has no partial-selection or resume mode. It refuses to start when its
-output directory already exists. Use `--dry-run` to validate the reference and
+Use `--dry-run` to validate the reference and
 print the eight pretraining commands and nine downstream commands without
 creating files.
 
-After a complete run, generate the article figure and statistical tables from
+After a complete run, you can generate the figure and statistical tables from
 the experiment manifest:
 
 ```bash
@@ -334,6 +356,6 @@ under the same column name; existing result files are not automatically migrated
 
 ## License
 
-The source code od this project is distributed under the GNU General Public
+The source code of this project is distributed under the GNU General Public
 License version 3 only (`GPL-3.0-only`). See [LICENSE](LICENSE) for details.
 
