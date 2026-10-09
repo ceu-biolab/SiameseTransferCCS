@@ -11,14 +11,13 @@ from src.models.ablations.pretrain_siamese_deep_only import (
     EMBEDDING_DIM,
     SiameseFingerprintModel,
 )
-from src.models.run_baseline import DEFAULT_CONFIG_PATH, VALID_FINGERPRINT_SOURCES
+from src.models.run_baseline import DEFAULT_CONFIG_PATH
 from src.models.run_siamese import SiameseCCSRunner as ReferenceCCSRunner
 
 
 MODEL_TYPE = "gated_residual_mlp"
 MODEL_TYPES = (MODEL_TYPE,)
 SIAMESE_RESULTS_DIRS = {
-    "alvadesc": Path("results/Siamese_physchem_deep_only_alvadesc"),
     "rdkit": Path("results/Siamese_physchem_deep_only"),
 }
 
@@ -35,6 +34,8 @@ class SiameseCCSRunner(ReferenceCCSRunner):
         siamese_results_dir: str | Path | None = None,
         experiment_tag: str = "hmdb90_10_v1",
     ):
+        if fingerprint_source != "rdkit":
+            raise ValueError("Architecture ablations support only RDKit fingerprints.")
         super().__init__(
             config_path=config_path,
             folds=folds,
@@ -99,7 +100,7 @@ def main() -> None:
     parser.add_argument("--random-seed", type=int, default=42)
     parser.add_argument(
         "--fingerprint-source",
-        choices=sorted(VALID_FINGERPRINT_SOURCES),
+        choices=("rdkit",),
         default="rdkit",
     )
     parser.add_argument("--siamese-results-dir", default=None)

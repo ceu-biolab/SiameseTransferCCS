@@ -25,13 +25,6 @@ PRETRAINING = {
         / "results"
         / "Siamese_physchem_wide_only_1536",
     },
-    "alvadesc": {
-        "module": "src.models.ablations.pretrain_siamese_wide_only_alvadesc",
-        "config": PAPER_CONFIG_ROOT / "pretrain_wide_only_1536_alvadesc.yaml",
-        "directory": PROJECT_ROOT
-        / "results"
-        / "Siamese_physchem_wide_only_1536_alvadesc",
-    },
 }
 
 
@@ -140,8 +133,8 @@ def validate_and_register_checkpoint(source: str) -> dict[str, str]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Sequentially pretrain the 1536-unit HMDB wide-only Siamese encoders "
-            "for RDKit and alvaDesc, register their hashes, and run all CCS DGR-MLP tasks."
+            "Pretrain the 1536-unit HMDB wide-only Siamese encoder "
+            "for RDKit, register its hashes, and run all CCS DGR-MLP tasks."
         )
     )
     parser.add_argument("--folds", type=int, default=5)
@@ -159,7 +152,7 @@ def main() -> None:
 
     logs_dir = EXPERIMENT_ROOT / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    sources = ["rdkit", "alvadesc"]
+    sources = list(PRETRAINING)
 
     for source in sources:
         spec = PRETRAINING[source]

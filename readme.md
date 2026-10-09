@@ -9,8 +9,8 @@ configs/
   ccs_prediction_heads.yaml                 # CCS heads and training settings
   pretrain_siamese.yaml                     # RDKit pretraining
   pretrain_siamese_alvadesc.yaml            # AlvaDesc pretraining
-  pretrain_siamese_deep_only*.yaml          # architecture ablations
-  pretrain_siamese_wide_only*.yaml
+  pretrain_siamese_deep_only.yaml           # RDKit architecture ablations
+  pretrain_siamese_wide_only.yaml
 
 resources/
   classifications/
@@ -257,6 +257,9 @@ Models:
 ## Ablations
 
 Ablation code lives in `src/models/ablations`.
+
+Architecture ablations (wide-only and deep-only) support RDKit fingerprints
+only. Full-encoder pretraining and CCS prediction also support alvaDesc.
 
 The article ablations use RDKit fingerprints and the DGR-MLP CCS head only.
 The complete suite runs sequentially and contains random initialization, six

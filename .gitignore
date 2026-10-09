@@ -1,0 +1,3 @@
+# Keep local tests outside version control.
+/test/
+/tests/

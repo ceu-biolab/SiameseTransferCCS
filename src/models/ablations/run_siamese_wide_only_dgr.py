@@ -165,6 +165,8 @@ class WideOnlyPretrainedDGRRunner(WideOnlyCCSRunner):
         routes: Iterable[str] | None = None,
         resume: bool = False,
     ):
+        if fingerprint_source != "rdkit":
+            raise ValueError("Architecture ablations support only RDKit fingerprints.")
         config_path = Path(config_path).resolve()
         manifest = load_experiment_manifest()
         checkpoint = manifest["checkpoints"].get(fingerprint_source)
@@ -450,8 +452,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--sources",
         nargs="+",
-        choices=("rdkit", "alvadesc"),
-        default=["rdkit", "alvadesc"],
+        choices=("rdkit",),
+        default=["rdkit"],
     )
     parser.add_argument("--routes", nargs="+", choices=sorted(ROUTES), default=list(ROUTES))
     parser.add_argument("--folds", type=int, default=5)

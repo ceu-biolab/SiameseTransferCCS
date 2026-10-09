@@ -16,23 +16,12 @@
       "weights_sha256": "b80cc3767bcb195350a22edc09f6e8034f60ba9597ca47825cdfebbbb71066a1",
       "model_manifest": "results/Siamese_physchem_wide_only_1536/model_manifest.json",
       "model_manifest_sha256": "c5391e935afd1f61333279dc5f7c2cddc48d1b29c04e20863ddc1f0b01da85d3"
-    },
-    "alvadesc": {
-      "directory": "results/Siamese_physchem_wide_only_1536_alvadesc",
-      "weights": "results/Siamese_physchem_wide_only_1536_alvadesc/fold_1/best.weights.h5",
-      "weights_sha256": "7a6c32c1eff027046ce71db418e3bce1706871f57db79eec84135bb04bb042d3",
-      "model_manifest": "results/Siamese_physchem_wide_only_1536_alvadesc/model_manifest.json",
-      "model_manifest_sha256": "8627789fc5592adcd668c6339cb7d6bb8ab005d71fddb36a81441a60e37772dd"
     }
   },
   "split_sha256": {
-    "train_val_ccsbase_test_ccsbase_alvadesc_fingerprints_same_db_splits.json": "fa0f21fe32937eb886e901834347e065699486e7c7bf0cdc23f491d48bf4de16",
     "train_val_ccsbase_test_ccsbase_rdkit_fingerprints_same_db_splits.json": "fa0f21fe32937eb886e901834347e065699486e7c7bf0cdc23f491d48bf4de16",
-    "train_val_ccsbase_test_metlinccs_alvadesc_fingerprints_external_test_trainval_splits.json": "ebd0fe55af68541024c741ccf2570fb3774c3aabd67e7dcce22099fdb14186e6",
     "train_val_ccsbase_test_metlinccs_rdkit_fingerprints_external_test_trainval_splits.json": "ebd0fe55af68541024c741ccf2570fb3774c3aabd67e7dcce22099fdb14186e6",
-    "train_val_metlinccs_test_ccsbase_alvadesc_fingerprints_external_test_trainval_splits.json": "389428f8f243acb3b53d7c29ee4944359b16ff510518f244191741d6f52ecdf0",
     "train_val_metlinccs_test_ccsbase_rdkit_fingerprints_external_test_trainval_splits.json": "389428f8f243acb3b53d7c29ee4944359b16ff510518f244191741d6f52ecdf0",
-    "train_val_metlinccs_test_metlinccs_alvadesc_fingerprints_same_db_splits.json": "af66f2e2b542de311c377b37fc3a6eb376f171df91742759a191dd9aaa41da35",
     "train_val_metlinccs_test_metlinccs_rdkit_fingerprints_same_db_splits.json": "af66f2e2b542de311c377b37fc3a6eb376f171df91742759a191dd9aaa41da35"
   },
   "encoder_architecture": {
